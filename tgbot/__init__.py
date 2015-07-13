@@ -8,10 +8,13 @@ from twx.botapi import TelegramBot
 class TGPluginBase(object):
     def list_commands(self):
         '''
-        this method should return a dictionary such as
-        { 'echo': self.echo_cmd }
+        this method should return a list of tuples containing:
+        ('command', method_to_execute, 'command description')
+
+        Set command description to None (or '') to prevent that
+        command from being listed by TGBot.list_commands
         '''
-        return {}
+        return []
 
 
 class TGBot(object):
@@ -24,16 +27,15 @@ class TGBot(object):
         self._no_cmd = no_command
 
         for p in plugins:
-            cmds = p.list_commands()
-            for cmd in cmds:
-                if cmd in self.cmds:
+            for cmd in p.list_commands():
+                if cmd[0] in self.cmds:
                     raise Exception(
                         'Duplicate command %s: both in %s and %s' % [
-                            cmd,
+                            cmd[0],
                             type(p).__name__,
-                            self.cmds[cmd][1],
+                            self.cmds[cmd[0]][2],
                         ])
-                self.cmds[cmd] = (cmds[cmd], type(p).__name__)
+                self.cmds[cmd[0]] = (cmd[1], cmd[2], type(p).__name__)
 
     def run(self):
         while True:
@@ -57,6 +59,22 @@ class TGBot(object):
                 self._last_id = up.update_id + 1
 
             sleep(self._polling_time)
+
+    def list_commands(self):
+        out = []
+        for ck in self.cmds:
+            if self.cmds[ck][1]:
+                out.append((ck, self.cmds[ck][1]))
+        return out
+
+    def print_commands(self):
+        '''
+        utility method to print commands and descriptions
+        for @BotFather
+        '''
+        cmds = self.list_commands()
+        for ck in cmds:
+            print '%s - %s' % ck
 
     def process(self, cmd, text, message):
         if cmd in self.cmds:
