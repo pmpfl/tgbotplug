@@ -19,7 +19,7 @@ class TGPlugin(object):
 
 
 class TGBot(object):
-    def __init__(self, token, polling_time=2, plugins=None):
+    def __init__(self, token, polling_time=2, plugins=[]):
         self._token = token
         self._tg = TelegramBot(token)
         self._last_id = None
@@ -30,8 +30,13 @@ class TGBot(object):
             cmds = p.list_commands()
             for cmd in cmds:
                 if cmd in self.cmds:
-                    raise Exception('Duplicate command %s' % cmd)
-                self.cmds[cmd] = cmds[cmd]
+                    raise Exception(
+                        'Duplicate command %s: both in %s and %s' % [
+                            cmd,
+                            type(p).__name__,
+                            self.cmds[cmd][1],
+                        ])
+                self.cmds[cmd] = (cmds[cmd], type(p).__name__)
 
     def run(self):
         while True:
@@ -57,4 +62,4 @@ class TGBot(object):
 
     def process(self, cmd, text, message):
         if cmd in self.cmds:
-            self.cmds[cmd](self._tg, message, text)
+            self.cmds[cmd][0](self._tg, message, text)
