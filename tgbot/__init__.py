@@ -14,7 +14,13 @@ class TGPluginBase(object):
         Set command description to None (or '') to prevent that
         command from being listed by TGBot.list_commands
         '''
-        return []
+        raise NotImplementedError('Abstract method')
+
+    def chat(self, tg, message, text):
+        '''
+        this method will be called on plugins used with option no_command
+        '''
+        raise NotImplementedError('Abstract method, no_command plugins need to implement this')
 
 
 class TGBot(object):
@@ -26,7 +32,15 @@ class TGBot(object):
         self._polling_time = polling_time
         self._no_cmd = no_command
 
+        if no_command is not None:
+            if not isinstance(no_command, TGPluginBase):
+                raise NotImplementedError('%s does not subclass tgbot.TGPluginBase' % type(no_command).__name__)
+
         for p in plugins:
+
+            if not isinstance(p, TGPluginBase):
+                raise NotImplementedError('%s does not subclass tgbot.TGPluginBase' % type(p).__name__)
+
             for cmd in p.list_commands():
                 if cmd[0] in self.cmds:
                     raise Exception(
@@ -52,7 +66,7 @@ class TGBot(object):
                         if up.message.reply_to_message:
                             self.process(up.message.reply_to_message.text[1:], up.message.text, up.message)
                         elif self._no_cmd is not None:
-                            self._no_cmd(self._tg, up.message, up.message.text)
+                            self._no_cmd.chat(self._tg, up.message, up.message.text)
 
                 else:
                     pass
