@@ -26,7 +26,7 @@ class TGPluginBase(object):
 class TGBot(object):
     def __init__(self, token, polling_time=2, plugins=[], no_command=None):
         self._token = token
-        self._tg = TelegramBot(token)
+        self.tg = TelegramBot(token)
         self._last_id = None
         self.cmds = {}
         self._polling_time = polling_time
@@ -53,7 +53,7 @@ class TGBot(object):
 
     def run(self):
         while True:
-            ups = self._tg.get_updates(offset=self._last_id).wait()
+            ups = self.tg.get_updates(offset=self._last_id).wait()
             for up in ups:
                 if up.message.text:
                     if up.message.text.startswith('/'):
@@ -66,7 +66,7 @@ class TGBot(object):
                         if up.message.reply_to_message:
                             self.process(up.message.reply_to_message.text[1:], up.message.text, up.message)
                         elif self._no_cmd is not None:
-                            self._no_cmd.chat(self._tg, up.message, up.message.text)
+                            self._no_cmd.chat(self, up.message, up.message.text)
 
                 else:
                     pass
@@ -92,4 +92,4 @@ class TGBot(object):
 
     def process(self, cmd, text, message):
         if cmd in self.cmds:
-            self.cmds[cmd][0](self._tg, message, text)
+            self.cmds[cmd][0](self, message, text)
