@@ -2,10 +2,14 @@
 # coding=utf-8
 
 from time import sleep
-from twx.botapi import TelegramBot
+from twx.botapi import TelegramBot, GroupChat
 
 
 class TGPluginBase(object):
+    def __init__(self):
+        self._msg_id_track = {}
+        self._msg_in_track = {}
+
     def list_commands(self):
         '''
         this method should return a list of tuples containing:
@@ -16,11 +20,72 @@ class TGPluginBase(object):
         '''
         raise NotImplementedError('Abstract method')
 
-    def chat(self, tg, message, text):
+    def chat(self, bot, message, text):
         '''
         this method will be called on plugins used with option no_command
         '''
         raise NotImplementedError('Abstract method, no_command plugins need to implement this')
+
+    def need_reply(self, handler, in_message, out_message=None, selective=False):
+        if in_message.chat.id not in self._msg_in_track:
+            self._msg_in_track[in_message.chat.id] = {}
+
+        chat = self._msg_in_track[in_message.chat.id]
+
+        if isinstance(in_message.chat, GroupChat) and selective:
+            key2 = in_message.sender.id
+        else:
+            key2 = 'any'
+
+        if out_message is not None:
+            self._msg_id_track[out_message.message_id] = key2
+            chat[key2] = (handler, out_message.message_id)
+        else:
+            chat[key2] = (handler, None)
+
+    def clear_chat_replies(self, chat_id):
+        if chat_id not in self._msg_in_track:
+            return
+
+        chat = self._msg_in_track[chat_id]
+        for msg in chat:
+            _, out_id = chat[msg]
+            if out_id is not None:
+                del(self._msg_id_track[out_id])
+
+        del(self._msg_in_track[chat_id])
+
+    def is_expected(self, bot, message):
+        if message.reply_to_message is not None:
+            if message.reply_to_message.message_id in self._msg_id_track:
+                chat_id = message.chat.id
+                key2 = self._msg_id_track[message.reply_to_message.message_id]
+                handler, _ = self._msg_in_track[chat_id][key2]
+                del(self._msg_in_track[chat_id][key2])
+                del(self._msg_id_track[message.reply_to_message.message_id])
+                handler(bot, message, message.text)
+                return True
+            else:
+                return False
+
+        if message.chat.id in self._msg_in_track:
+            chat = self._msg_in_track[message.chat.id]
+            key2 = chat.get('any')
+            if key2 is None:
+                key2 = chat.get(message.sender.id)
+
+            if key2 is None:
+                return False
+
+            handler, out_id = chat[key2]
+            del(chat[key2])
+            if out_id is not None:
+                del(self._msg_id_track[out_id])
+
+            handler(bot, message, message.text)
+            return True
+
+        return False
 
 
 class TGBot(object):
@@ -31,12 +96,14 @@ class TGBot(object):
         self.cmds = {}
         self._polling_time = polling_time
         self._no_cmd = no_command
+        self._msgs = {}
+        self._plugins = plugins
 
         if no_command is not None:
             if not isinstance(no_command, TGPluginBase):
                 raise NotImplementedError('%s does not subclass tgbot.TGPluginBase' % type(no_command).__name__)
 
-        for p in plugins:
+        for p in self._plugins:
 
             if not isinstance(p, TGPluginBase):
                 raise NotImplementedError('%s does not subclass tgbot.TGPluginBase' % type(p).__name__)
@@ -63,9 +130,13 @@ class TGBot(object):
                         else:
                             self.process(up.message.text[1:spl], up.message.text[spl + 1:], up.message)
                     else:
-                        if up.message.reply_to_message:
-                            self.process(up.message.reply_to_message.text[1:], up.message.text, up.message)
-                        elif self._no_cmd is not None:
+                        was_expected = False
+                        for p in self._plugins:
+                            was_expected = p.is_expected(self, up.message)
+                            if was_expected:
+                                break
+
+                        if self._no_cmd is not None and not was_expected:
                             self._no_cmd.chat(self, up.message, up.message.text)
 
                 else:
