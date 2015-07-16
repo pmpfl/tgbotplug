@@ -2,7 +2,7 @@
 # coding=utf-8
 
 from time import sleep
-from twx.botapi import TelegramBot
+from twx.botapi import TelegramBot, Message
 
 
 class TGPluginBase(object):
@@ -31,6 +31,7 @@ class TGBot(object):
         self.cmds = {}
         self._polling_time = polling_time
         self._no_cmd = no_command
+        self._msgs = {}
 
         if no_command is not None:
             if not isinstance(no_command, TGPluginBase):
