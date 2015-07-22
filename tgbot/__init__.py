@@ -67,16 +67,14 @@ class TGPluginBase(object):
                 return True
             else:
                 return False
-
         if message.chat.id in self._msg_in_track:
             chat = self._msg_in_track[message.chat.id]
-            key2 = chat.get('any')
-            if key2 is None:
-                key2 = chat.get(message.sender.id)
-
+            if chat.get('any') is not None:
+                key2 = 'any'
+            if key2 is None and chat.get(message.sender.id) is not None:
+                key2 = message.sender.id
             if key2 is None:
                 return False
-
             handler, out_id = chat[key2]
             del(chat[key2])
             if out_id is not None:
@@ -86,7 +84,6 @@ class TGPluginBase(object):
             return True
 
         return False
-
 
 class TGBot(object):
     def __init__(self, token, polling_time=2, plugins=[], no_command=None):
