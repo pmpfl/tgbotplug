@@ -85,6 +85,7 @@ class TGPluginBase(object):
 
         return False
 
+
 class TGBot(object):
     def __init__(self, token, polling_time=2, plugins=[], no_command=None):
         self._token = token
@@ -108,36 +109,37 @@ class TGBot(object):
             for cmd in p.list_commands():
                 if cmd[0] in self.cmds:
                     raise Exception(
-                        'Duplicate command %s: both in %s and %s' % [
+                        'Duplicate command %s: both in %s and %s' % (
                             cmd[0],
                             type(p).__name__,
                             self.cmds[cmd[0]][2],
-                        ])
+                        )
+                    )
                 self.cmds[cmd[0]] = (cmd[1], cmd[2], type(p).__name__)
+
+    def process_update(self, update):
+        if update.message.text:
+            if update.message.text.startswith('/'):
+                spl = update.message.text.find(' ')
+                if spl < 0:
+                    self.process(update.message.text[1:], '', update.message)
+                else:
+                    self.process(update.message.text[1:spl], update.message.text[spl + 1:], update.message)
+            else:
+                was_expected = False
+                for p in self._plugins:
+                    was_expected = p.is_expected(self, update.message)
+                    if was_expected:
+                        break
+
+                if self._no_cmd is not None and not was_expected:
+                    self._no_cmd.chat(self, update.message, update.message.text)
 
     def run(self):
         while True:
             ups = self.tg.get_updates(offset=self._last_id).wait()
             for up in ups:
-                if up.message.text:
-                    if up.message.text.startswith('/'):
-                        spl = up.message.text.find(' ')
-                        if spl < 0:
-                            self.process(up.message.text[1:], '', up.message)
-                        else:
-                            self.process(up.message.text[1:spl], up.message.text[spl + 1:], up.message)
-                    else:
-                        was_expected = False
-                        for p in self._plugins:
-                            was_expected = p.is_expected(self, up.message)
-                            if was_expected:
-                                break
-
-                        if self._no_cmd is not None and not was_expected:
-                            self._no_cmd.chat(self, up.message, up.message.text)
-
-                else:
-                    pass
+                self.process_update(up)
                 self._last_id = up.update_id + 1
 
             sleep(self._polling_time)
