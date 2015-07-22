@@ -159,5 +159,8 @@ class TGBot(object):
             print '%s - %s' % ck
 
     def process(self, cmd, text, message):
+        spl = cmd.find('@')
+        if spl > 0:
+            cmd = cmd[:spl]
         if cmd in self.cmds:
             self.cmds[cmd][0](self, message, text)
