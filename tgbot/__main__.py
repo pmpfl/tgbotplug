@@ -13,6 +13,8 @@ def build_parser():
                         help='plugin.method to be used for non-command messages')
     parser.add_argument('--polling', '-p', dest='polling', type=int, default=2,
                         help='interval (in seconds) to check for message updates')
+    parser.add_argument('--db_url', '-d', dest='db_url',
+                        help='URL for database (default is in-memory sqlite)')
     parser.add_argument('--listcommands', '-l', dest='list', action='store_const',
                         const=True, default=False,
                         help='plugin method to be used for non-command messages (ex: plugins.simsimi.SimsimiPlugin.simsimi)')
@@ -47,7 +49,7 @@ def main():
     except Exception as e:
         parser.error(e.message)
 
-    tg = TGBot(args.token, polling_time=args.polling, plugins=plugins, no_command=nocmd)
+    tg = TGBot(args.token, polling_time=args.polling, plugins=plugins, no_command=nocmd, db_url=args.db_url)
 
     if args.list:
         tg.print_commands()

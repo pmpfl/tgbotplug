@@ -29,7 +29,8 @@ setup(
         'Programming Language :: Python :: 2.7',
     ],
     install_requires=[
-        'requests',
-        'twx.botapi',
+        'requests==2.7.0',
+        'twx.botapi==1.0.2',
+        'peewee==2.6.3',
     ]
 )
