@@ -1,4 +1,7 @@
 # tgbotplug
+
+[![Build Status](https://travis-ci.org/fopina/tgbotplug.svg)](https://travis-ci.org/fopina/tgbotplug)
+
 tgbotplug is meant to be an easy-to-extend telegram bot built around [twx.botapi](https://github.com/datamachine/twx.botapi).
 
 Plugin examples can be found in [tgbotplug-plugins](https://github.com/fopina/tgbotplug-plugins).
