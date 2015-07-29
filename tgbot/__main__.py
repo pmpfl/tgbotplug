@@ -51,7 +51,7 @@ def main():
     except Exception as e:
         parser.error(e.message)
 
-    tg = TGBot(args.token, polling_time=args.polling, plugins=plugins, no_command=nocmd, db_url=args.db_url)
+    tg = TGBot(args.token, plugins=plugins, no_command=nocmd, db_url=args.db_url)
 
     if args.list:
         tg.print_commands()
@@ -61,7 +61,7 @@ def main():
         parser.error('--token is required')
 
     if args.webhook is None:
-        tg.run()
+        tg.run(polling_time=args.polling)
     else:
         tg.run_web(args.webhook[0], host='0.0.0.0', port=int(args.webhook[1]))
 
