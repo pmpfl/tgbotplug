@@ -18,14 +18,16 @@ def build_parser():
     parser.add_argument('--listcommands', '-l', dest='list', action='store_const',
                         const=True, default=False,
                         help='plugin method to be used for non-command messages (ex: plugins.simsimi.SimsimiPlugin.simsimi)')
+    parser.add_argument('--webhook', '-w', dest='webhook', nargs=2, metavar=('hook_url', 'port'),
+                        help='use webhooks (instead of polling) - requires bottle')
     return parser
 
 
 def import_class(cl):
     d = cl.rfind(".")
-    classname = cl[d + 1:len(cl)]
-    m = __import__(cl[0:d], globals(), locals(), [classname])
-    return getattr(m, classname)
+    class_name = cl[d + 1:len(cl)]
+    m = __import__(cl[0:d], globals(), locals(), [class_name])
+    return getattr(m, class_name)
 
 
 def main():
@@ -53,12 +55,15 @@ def main():
 
     if args.list:
         tg.print_commands()
-    else:
-        if args.token is None:
-            parser.error('--token is required')
+        return
 
-    if args.token is not None:
+    if args.token is None:
+        parser.error('--token is required')
+
+    if args.webhook is None:
         tg.run()
+    else:
+        tg.run_web(args.webhook[0], host='0.0.0.0', port=int(args.webhook[1]))
 
 
 if __name__ == '__main__':

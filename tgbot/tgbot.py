@@ -1,17 +1,15 @@
-from time import sleep
-from twx.botapi import TelegramBot
+from twx.botapi import TelegramBot, Error
 from . import models
 from .pluginbase import TGPluginBase
 from playhouse.db_url import connect
 
 
 class TGBot(object):
-    def __init__(self, token, polling_time=2, plugins=[], no_command=None, db_url=None):
+    def __init__(self, token, plugins=[], no_command=None, db_url=None):
         self._token = token
         self.tg = TelegramBot(token)
         self._last_id = None
         self.cmds = {}
-        self._polling_time = polling_time
         self._no_cmd = no_command
         self._msgs = {}
         self._plugins = plugins
@@ -65,14 +63,29 @@ class TGBot(object):
     def setup_db(self):
         models.create_tables(self.db)
 
-    def run(self):
+    def run(self, polling_time=2):
+        from time import sleep
+        # make sure all webhooks are disabled
+        self.tg.set_webhook().wait()
+
         while True:
             ups = self.tg.get_updates(offset=self._last_id).wait()
-            for up in ups:
-                self.process_update(up)
-                self._last_id = up.update_id + 1
+            if isinstance(ups, Error):
+                print 'Error: ', ups
+            else:
+                for up in ups:
+                    self.process_update(up)
+                    self._last_id = up.update_id + 1
 
-            sleep(self._polling_time)
+            sleep(polling_time)
+
+    def run_web(self, hook_url, **kwargs):
+        from . import webserver
+        url = hook_url
+        if url[-1] != '/':
+            url += '/'
+        self.tg.set_webhook(url + 'update/' + self._token)
+        webserver.run_server(self, **kwargs)
 
     def list_commands(self):
         out = []
@@ -95,4 +108,9 @@ class TGBot(object):
         if spl > 0:
             cmd = cmd[:spl]
         if cmd in self.cmds:
-            self.cmds[cmd][0](self, message, text)
+            try:
+                self.cmds[cmd][0](self, message, text)
+            except:
+                import traceback
+                traceback.print_exc()
+                self.tg.send_message(message.chat.id, 'some error occurred... (logged and reported)', reply_to_message_id=message.message_id)

@@ -100,7 +100,10 @@ class TGPluginBase(object):
         msg = None
         if message.reply_to_message is not None:
             try:
-                msg = models.Message.get(models.Message.reply_id == message.reply_to_message.message_id)
+                msg = models.Message.get(
+                    models.Message.reply_id == message.reply_to_message.message_id,
+                    models.Message.reply_plugin == self.key_name,
+                )
             except models.Message.DoesNotExist:
                 return False
 
