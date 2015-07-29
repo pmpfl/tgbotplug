@@ -64,6 +64,7 @@ class TGPluginBase(object):
             models.Message.delete().where(models.Message.sender_id == chat.id)
 
     def save_data(self, key1, key2=None, obj=None):
+        json_obj = None
         if obj is not None:
             json_obj = json.dumps(obj)
 
