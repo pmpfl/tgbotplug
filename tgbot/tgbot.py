@@ -1,11 +1,11 @@
 from twx.botapi import TelegramBot, Error
 from . import models
-from .pluginbase import TGPluginBase
+from .pluginbase import TGPluginBase, TGCommandBase
 from playhouse.db_url import connect
 
 
 class TGBot(object):
-    def __init__(self, token, plugins=[], no_command=None, db_url=None):
+    def __init__(self, token, name, plugins=[], no_command=None, db_url=None):
         self._token = token
         self.tg = TelegramBot(token)
         self._last_id = None
@@ -13,6 +13,7 @@ class TGBot(object):
         self._no_cmd = no_command
         self._msgs = {}
         self._plugins = plugins
+        self._name = name
 
         if no_command is not None:
             if not isinstance(no_command, TGPluginBase):
@@ -24,15 +25,19 @@ class TGBot(object):
                 raise NotImplementedError('%s does not subclass tgbot.TGPluginBase' % type(p).__name__)
 
             for cmd in p.list_commands():
-                if cmd[0] in self.cmds:
+
+                if not isinstance(cmd, TGCommandBase):
+                    raise NotImplementedError('%s does not subclass tgbot.TGCommandBase' % type(cmd).__name__)
+
+                if cmd in self.cmds:
                     raise Exception(
                         'Duplicate command %s: both in %s and %s' % (
-                            cmd[0],
+                            cmd.command,
                             type(p).__name__,
-                            self.cmds[cmd[0]][2],
+                            self.cmds[cmd.command].description,
                         )
                     )
-                self.cmds[cmd[0]] = (cmd[1], cmd[2], type(p).__name__)
+                self.cmds[cmd.command] = cmd
 
         if db_url is None:
             self.db = connect('sqlite:///:memory:')
@@ -45,11 +50,10 @@ class TGBot(object):
     def process_update(self, update):
         if update.message.text:
             if update.message.text.startswith('/'):
-                spl = update.message.text.find(' ')
-                if spl < 0:
-                    self.process(update.message.text[1:], '', update.message)
-                else:
-                    self.process(update.message.text[1:spl], update.message.text[spl + 1:], update.message)
+                splat = update.message.text.find('@')
+                text = update.message.text if splat < 0 else update.message.text[:splat] + update.message.text[(splat+len(self.name)+1):]
+                for p in self._plugins:
+                    self.process(p, update.message, text)
             else:
                 was_expected = False
                 for p in self._plugins:
@@ -90,8 +94,8 @@ class TGBot(object):
     def list_commands(self):
         out = []
         for ck in self.cmds:
-            if self.cmds[ck][1]:
-                out.append((ck, self.cmds[ck][1]))
+            if self.cmds[ck].description:
+                out.append((ck, self.cmds[ck].description))
         return out
 
     def print_commands(self):
@@ -103,14 +107,17 @@ class TGBot(object):
         for ck in cmds:
             print '%s - %s' % ck
 
-    def process(self, cmd, text, message):
-        spl = cmd.find('@')
-        if spl > 0:
-            cmd = cmd[:spl]
-        if cmd in self.cmds:
-            try:
-                self.cmds[cmd][0](self, message, text)
-            except:
-                import traceback
-                traceback.print_exc()
-                self.tg.send_message(message.chat.id, 'some error occurred... (logged and reported)', reply_to_message_id=message.message_id)
+    def process(self, plugin, message, text):
+        print text
+        for cmd in plugin.list_commands():
+            if text.startswith(cmd.command, 1):
+                if len(text) == (len(cmd.command) + 1):
+                    cmd.method(self, message, '')
+                    break
+                spl = text.find(' ')
+                if spl > 0:
+                    cmd.method(self, message, text[spl + 1:])
+                    break
+                if cmd.prefix:
+                    cmd.method(self, message, text[len(cmd.command) + 1:])
+                    break
