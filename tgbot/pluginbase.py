@@ -24,14 +24,7 @@ class TGPluginBase(object):
         raise NotImplementedError('Abstract method, no_command plugins need to implement this')
 
     def need_reply(self, handler, in_message, out_message=None, selective=False):
-        try:
-            sender = models.User.get(models.User.id == in_message.sender.id)
-        except models.User.DoesNotExist:
-            sender = models.User.create(
-                id=in_message.sender.id,
-                first_name=in_message.sender.first_name,
-                last_name=in_message.sender.last_name,
-            )
+        sender = models.User.get(models.User.id == in_message.sender.id)
 
         if isinstance(in_message.chat, GroupChat):
             try:

@@ -5,8 +5,10 @@ from . import TGBot
 
 class PluginTestCase(unittest.TestCase):
     def fake_bot(self, *args, **kwargs):
+        me = kwargs.pop('me', None)
         bot = TGBot(*args, **kwargs)
         bot.tg = FakeTelegramBot()
+        bot.me = me
         return bot
 
     def assertReplied(self, bot, text):

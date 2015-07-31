@@ -1,7 +1,8 @@
-from twx.botapi import TelegramBot, Error
+from twx.botapi import TelegramBot, Error, GroupChat
 from . import models
 from .pluginbase import TGPluginBase
 from playhouse.db_url import connect
+import peewee
 
 
 class TGBot(object):
@@ -13,6 +14,10 @@ class TGBot(object):
         self._no_cmd = no_command
         self._msgs = {}
         self._plugins = plugins
+        self.me = None
+
+        if self._token:
+            self.me = self.tg.get_me().wait()
 
         if no_command is not None:
             if not isinstance(no_command, TGPluginBase):
@@ -42,23 +47,52 @@ class TGBot(object):
             self.db = connect(db_url)
             models.database_proxy.initialize(self.db)
 
-    def process_update(self, update):
-        if update.message.text:
-            if update.message.text.startswith('/'):
-                spl = update.message.text.find(' ')
+    def process_update(self, update):  # noqa not complex at all!
+        message = update.message
+
+        try:
+            models.User.create(
+                id=message.sender.id,
+                first_name=message.sender.first_name,
+                last_name=message.sender.last_name,
+            )
+        except peewee.IntegrityError:
+            pass  # ignore, already exists
+
+        if message.left_chat_participant == self.me:
+            models.GroupChat.delete().where(models.GroupChat.id == message.chat.id).execute()
+        elif isinstance(message.chat, GroupChat):
+            try:
+                models.GroupChat.create(id=message.chat.id, title=message.chat.title)
+            except peewee.IntegrityError:
+                pass
+
+        if message.new_chat_participant is not None and message.new_chat_participant != self.me:
+            try:
+                models.User.create(
+                    id=message.new_chat_participant.id,
+                    first_name=message.new_chat_participant.first_name,
+                    last_name=message.new_chat_participant.last_name,
+                )
+            except peewee.IntegrityError:
+                pass  # ignore, already exists
+
+        if message.text:
+            if message.text.startswith('/'):
+                spl = message.text.find(' ')
                 if spl < 0:
-                    self.process(update.message.text[1:], '', update.message)
+                    self.process(message.text[1:], '', message)
                 else:
-                    self.process(update.message.text[1:spl], update.message.text[spl + 1:], update.message)
+                    self.process(message.text[1:spl], message.text[spl + 1:], message)
             else:
                 was_expected = False
                 for p in self._plugins:
-                    was_expected = p.is_expected(self, update.message)
+                    was_expected = p.is_expected(self, message)
                     if was_expected:
                         break
 
                 if self._no_cmd is not None and not was_expected:
-                    self._no_cmd.chat(self, update.message, update.message.text)
+                    self._no_cmd.chat(self, message, message.text)
 
     def setup_db(self):
         models.create_tables(self.db)
@@ -80,12 +114,12 @@ class TGBot(object):
             sleep(polling_time)
 
     def run_web(self, hook_url, **kwargs):
-        from . import webserver
+        from .webserver import run_server
         url = hook_url
         if url[-1] != '/':
             url += '/'
         self.tg.set_webhook(url + 'update/' + self._token)
-        webserver.run_server(self, **kwargs)
+        run_server(self, **kwargs)
 
     def list_commands(self):
         out = []
