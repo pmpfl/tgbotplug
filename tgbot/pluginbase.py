@@ -96,7 +96,7 @@ class TGPluginBase(object):
         except models.PluginData.DoesNotExist:
             return None
 
-    def is_expected(self, bot, message):
+    def is_expected(self, bot, message):  # noqa - not complex at all!
         msg = None
         if message.reply_to_message is not None:
             try:
@@ -109,8 +109,8 @@ class TGPluginBase(object):
 
         if msg is None:
             if isinstance(message.chat, GroupChat):
-                msgs = models.Message.select().join(models.GroupChat).where(
-                    models.GroupChat.id == message.chat.id,
+                msgs = models.Message.select().where(
+                    models.Message.group_chat == message.chat.id,
                     models.Message.reply_plugin == self.key_name,
                 )
                 for m in msgs:
@@ -122,11 +122,11 @@ class TGPluginBase(object):
                         break
             else:
                 try:
-                    msg = models.Message.select().join(models.User).where(
-                        models.User.id == message.chat.id,
+                    msg = models.Message.get(
+                        models.Message.sender == message.chat.id,
                         models.Message.reply_plugin == self.key_name,
-                    )[0]
-                except IndexError:
+                    )
+                except models.Message.DoesNotExist:
                     pass
 
         if msg is None:
