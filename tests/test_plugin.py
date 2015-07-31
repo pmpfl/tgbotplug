@@ -1,4 +1,4 @@
-from tgbot import plugintest, TGPluginBase
+from tgbot import plugintest, TGPluginBase, TGCommandBase
 from twx.botapi import Update, ForceReply
 
 
@@ -8,12 +8,12 @@ class TestPlugin(TGPluginBase):
 
     def list_commands(self):
         return [
-            ('echo', self.echo, 'right back at ya'),
-            ('echo2', self.echo_selective, 'right back at ya'),
-            ('save', self.save, 'save a note'),
-            ('read', self.read, 'read a note'),
-            ('savegroup', self.savegroup, 'save a group note'),
-            ('readgroup', self.readgroup, 'read a group note'),
+            TGCommandBase('echo', self.echo, 'right back at ya'),
+            TGCommandBase('echo2', self.echo_selective, 'right back at ya'),
+            TGCommandBase('save', self.save, 'save a note'),
+            TGCommandBase('read', self.read, 'read a note'),
+            TGCommandBase('savegroup', self.savegroup, 'save a group note'),
+            TGCommandBase('readgroup', self.readgroup, 'read a group note')
         ]
 
     def echo_selective(self, bot, message, text):
@@ -80,6 +80,7 @@ class TestPluginTest(plugintest.PluginTestCase):
     def setUp(self):
         self.bot = self.fake_bot(
             '',
+            'testbot',
             plugins=[TestPlugin()],
         )
         self.received_id = 1
