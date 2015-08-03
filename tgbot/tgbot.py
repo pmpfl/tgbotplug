@@ -59,7 +59,7 @@ class TGBot(object):
         except peewee.IntegrityError:
             pass  # ignore, already exists
 
-        if message.left_chat_participant == self.me:
+        if message.left_chat_participant is not None and message.left_chat_participant == self.me:
             models.GroupChat.delete().where(models.GroupChat.id == message.chat.id).execute()
         elif isinstance(message.chat, GroupChat):
             try:
@@ -77,22 +77,31 @@ class TGBot(object):
             except peewee.IntegrityError:
                 pass  # ignore, already exists
 
-        if message.text:
-            if message.text.startswith('/'):
-                spl = message.text.find(' ')
-                if spl < 0:
-                    self.process(message.text[1:], '', message)
-                else:
-                    self.process(message.text[1:spl], message.text[spl + 1:], message)
-            else:
-                was_expected = False
-                for p in self._plugins:
-                    was_expected = p.is_expected(self, message)
-                    if was_expected:
-                        break
+        if message.contact is not None:
+            try:
+                models.User.create(
+                    id=message.contact.user_id,
+                    first_name=message.contact.first_name,
+                    last_name=message.contact.last_name,
+                )
+            except peewee.IntegrityError:
+                pass  # ignore, already exists
 
-                if self._no_cmd is not None and not was_expected:
-                    self._no_cmd.chat(self, message, message.text)
+        if message.text is not None and message.text.startswith('/'):
+            spl = message.text.find(' ')
+            if spl < 0:
+                self.process(message.text[1:], '', message)
+            else:
+                self.process(message.text[1:spl], message.text[spl + 1:], message)
+        else:
+            was_expected = False
+            for p in self._plugins:
+                was_expected = p.is_expected(self, message)
+                if was_expected:
+                    break
+
+            if self._no_cmd is not None and not was_expected:
+                self._no_cmd.chat(self, message, message.text)
 
     def setup_db(self):
         models.create_tables(self.db)

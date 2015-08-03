@@ -85,6 +85,8 @@ class TGPluginBase(object):
                 models.PluginData.k1 == key1,
                 models.PluginData.k2 == key2
             )
+            if data.data is None:
+                return None
             return json.loads(data.data)
         except models.PluginData.DoesNotExist:
             return None
