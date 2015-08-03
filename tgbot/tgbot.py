@@ -45,6 +45,7 @@ class TGBot(object):
             self.setup_db()
         else:
             self.db = connect(db_url)
+            self.db.autorollback = True
             models.database_proxy.initialize(self.db)
 
     def process_update(self, update):  # noqa not complex at all!
