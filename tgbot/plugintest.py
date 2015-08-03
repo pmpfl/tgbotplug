@@ -34,6 +34,10 @@ class FakeTelegramBot(botapi.TelegramBot):
         self._sent_messages = []
         self._current_message_id = 0
 
+    @property
+    def username(self):
+        return 'test'
+
     def send_message(self, chat_id, text, disable_web_page_preview=None, reply_to_message_id=None, reply_markup=None, **kwargs):
         self._sent_messages.append(([chat_id, text], kwargs))
         self._current_message_id += 1

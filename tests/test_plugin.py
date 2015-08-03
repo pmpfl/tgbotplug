@@ -13,7 +13,8 @@ class TestPlugin(TGPluginBase):
             TGCommandBase('save', self.save, 'save a note'),
             TGCommandBase('read', self.read, 'read a note'),
             TGCommandBase('savegroup', self.savegroup, 'save a group note'),
-            TGCommandBase('readgroup', self.readgroup, 'read a group note')
+            TGCommandBase('readgroup', self.readgroup, 'read a group note'),
+            TGCommandBase('prefixcmd', self.prefixcmd, 'prefix cmd', prefix=True)
         ]
 
     def echo_selective(self, bot, message, text):
@@ -49,6 +50,7 @@ class TestPlugin(TGPluginBase):
             bot.tg.send_message(message.chat.id, 'Use it like: /save my note', reply_to_message_id=message.message_id)
         else:
             # complexify note for test purposes
+            print text
             self.save_data(message.chat.id, key2=message.sender.id, obj={
                 'note': text
             })
@@ -65,6 +67,7 @@ class TestPlugin(TGPluginBase):
         if not text:
             bot.tg.send_message(message.chat.id, 'Use it like: /savegroup my note', reply_to_message_id=message.message_id)
         else:
+            print text
             self.save_data(message.chat.id, obj=text)
             bot.tg.send_message(message.chat.id, 'saved', reply_to_message_id=message.message_id)
 
@@ -75,12 +78,14 @@ class TestPlugin(TGPluginBase):
         else:
             bot.tg.send_message(message.chat.id, 'this group note: ' + note, reply_to_message_id=message.message_id)
 
+    def prefixcmd(self, bot, message, text):
+        bot.tg.send_message(message.chat.id, text)
+
 
 class TestPluginTest(plugintest.PluginTestCase):
     def setUp(self):
         self.bot = self.fake_bot(
             '',
-            'testbot',
             plugins=[TestPlugin()],
         )
         self.received_id = 1
@@ -241,3 +246,13 @@ class TestPluginTest(plugintest.PluginTestCase):
             'last_name': 'Doe',
         })
         self.assertReplied(self.bot, 'this group note: test 123')
+
+    def test_prefix_cmd(self):
+        self.receive_message('/prefixcmd123123')
+        self.assertReplied(self.bot, '123123')
+
+        self.receive_message('/prefixcmd@test123123')
+        self.assertReplied(self.bot, '123123')
+
+        self.receive_message('/prefixcmd@test 123123')
+        self.assertReplied(self.bot, '123123')

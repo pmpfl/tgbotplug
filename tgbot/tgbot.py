@@ -5,7 +5,7 @@ from playhouse.db_url import connect
 
 
 class TGBot(object):
-    def __init__(self, token, name, plugins=[], no_command=None, db_url=None):
+    def __init__(self, token, plugins=[], no_command=None, db_url=None):
         self._token = token
         self.tg = TelegramBot(token)
         self._last_id = None
@@ -13,7 +13,6 @@ class TGBot(object):
         self._no_cmd = no_command
         self._msgs = {}
         self._plugins = plugins
-        self._name = name
 
         if no_command is not None:
             if not isinstance(no_command, TGPluginBase):
@@ -49,9 +48,8 @@ class TGBot(object):
 
     def process_update(self, update):
         if update.message.text:
-            if update.message.text.startswith('/'):
-                splat = update.message.text.find('@')
-                text = update.message.text if splat < 0 else update.message.text[:splat] + update.message.text[(splat+len(self.name)+1):]
+            if update.message.text is not None and update.message.text.startswith('/'):
+                text = update.message.text.replace("@" + self.tg.username, '', 1)
                 for p in self._plugins:
                     self.process(p, update.message, text)
             else:
@@ -108,14 +106,13 @@ class TGBot(object):
             print '%s - %s' % ck
 
     def process(self, plugin, message, text):
-        print text
         for cmd in plugin.list_commands():
             if text.startswith(cmd.command, 1):
                 if len(text) == (len(cmd.command) + 1):
                     cmd.method(self, message, '')
                     break
                 spl = text.find(' ')
-                if spl > 0:
+                if spl == (len(cmd.command) + 1):
                     cmd.method(self, message, text[spl + 1:])
                     break
                 if cmd.prefix:
