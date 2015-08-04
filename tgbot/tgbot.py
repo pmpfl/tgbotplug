@@ -173,5 +173,8 @@ class TGBot(object):
         else:
             for pcmd in self.pcmds:
                 if cmd.startswith(pcmd):
-                    self.pcmds[pcmd].method(self, message, cmd[len(pcmd):] + text)
+                    ntext = cmd[len(pcmd):]
+                    if text:
+                        ntext += ' ' + text
+                    self.pcmds[pcmd].method(self, message, ntext)
                     break
