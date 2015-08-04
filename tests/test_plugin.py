@@ -50,7 +50,6 @@ class TestPlugin(TGPluginBase):
             bot.tg.send_message(message.chat.id, 'Use it like: /save my note', reply_to_message_id=message.message_id)
         else:
             # complexify note for test purposes
-            print text
             self.save_data(message.chat.id, key2=message.sender.id, obj={
                 'note': text
             })
@@ -67,7 +66,6 @@ class TestPlugin(TGPluginBase):
         if not text:
             bot.tg.send_message(message.chat.id, 'Use it like: /savegroup my note', reply_to_message_id=message.message_id)
         else:
-            print text
             self.save_data(message.chat.id, obj=text)
             bot.tg.send_message(message.chat.id, 'saved', reply_to_message_id=message.message_id)
 
@@ -84,9 +82,10 @@ class TestPlugin(TGPluginBase):
 
 class TestPluginTest(plugintest.PluginTestCase):
     def setUp(self):
+        self.plugin = TestPlugin()
         self.bot = self.fake_bot(
             '',
-            plugins=[TestPlugin()],
+            plugins=[self.plugin],
         )
         self.received_id = 1
 
@@ -264,8 +263,51 @@ save - save a note
         self.receive_message('/prefixcmd1')
         self.assertReplied(self.bot, '1')
 
-        self.receive_message('/prefixcmd12@%s' % self.bot.tg.username)
+        self.receive_message('/prefixcmd12@test_bot')
         self.assertReplied(self.bot, '12')
 
-        self.receive_message('/prefixcmd@%s 123' % self.bot.tg.username)
+        self.receive_message('/prefixcmd@test_bot 123')
         self.assertReplied(self.bot, '123')
+
+    def test_list_keys(self):
+        sender2 = {
+            'id': 2,
+            'first_name': 'Jane',
+            'last_name': 'Doe',
+        }
+        chat1 = {
+            'id': 3,
+            'title': 'test chat',
+        }
+
+        self.receive_message('/save note1') # 1 1
+        self.receive_message('/save note2', sender=sender2) # 2 2
+        self.receive_message('/save note3', chat=chat1) # 3 1
+        self.receive_message('/save note4', sender=sender2, chat=chat1) # 3 2
+
+        self.assertEqual(
+            list(self.plugin.iter_data_keys()),
+            ['1', '2', '3'],
+        )
+        self.assertEqual(
+            list(self.plugin.iter_data_key_keys()),
+            [],
+        )
+        self.assertEqual(
+            list(self.plugin.iter_data_key_keys('1')),
+            ['1'],
+        )
+        self.assertEqual(
+            list(self.plugin.iter_data_key_keys('2')),
+            ['2'],
+        )
+        self.assertEqual(
+            list(self.plugin.iter_data_key_keys('3')),
+            ['1', '2'],
+        )
+
+        self.plugin.save_data(3, key2=2)
+        self.assertEqual(
+            list(self.plugin.iter_data_key_keys('3')),
+            ['1'],
+        )

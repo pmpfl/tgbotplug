@@ -65,6 +65,21 @@ class TGPluginBase(object):
         else:
             models.Message.delete().where(models.Message.sender_id == chat.id)
 
+    def iter_data_keys(self):
+        for d in models.PluginData.select(models.PluginData.k1).distinct(models.PluginData.k1).where(
+                        models.PluginData.name == self.key_name,
+                        models.PluginData.data != None,
+                        ):
+            yield d.k1
+
+    def iter_data_key_keys(self, key1=None):
+        for d in models.PluginData.select(models.PluginData.k2).where(
+                        models.PluginData.name == self.key_name,
+                        models.PluginData.k1 == key1,
+                        models.PluginData.data != None,
+                        ):
+            yield d.k2
+
     def save_data(self, key1, key2=None, obj=None):
         json_obj = None
         if obj is not None:
