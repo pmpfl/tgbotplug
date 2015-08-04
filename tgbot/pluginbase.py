@@ -4,14 +4,16 @@ import json
 
 
 class TGCommandBase(object):
-    def __init__(self, command, method, description='', prefix=False):
+    def __init__(self, command, method, description='', prefix=False, printable=True):
         self.command = command
         self.method = method
         self.description = description
         self.prefix = prefix
+        self.printable = printable
 
-    def printcommand(self):
-        print '%s - %s' % self.method, self.description
+    def __str__(self):
+        if self.printable:
+            return '%s - %s' % (self.command, self.description)
 
 
 class TGPluginBase(object):
@@ -21,9 +23,6 @@ class TGPluginBase(object):
     def list_commands(self):
         '''
         this method should return a list of TGCommandBase
-
-        Set command description to None (or '') to prevent that
-        command from being listed by TGBot.list_commands
         '''
         raise NotImplementedError('Abstract method')
 

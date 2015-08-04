@@ -3,6 +3,7 @@ from . import models
 from .pluginbase import TGPluginBase, TGCommandBase
 from playhouse.db_url import connect
 import peewee
+import sys
 
 
 class TGBot(object):
@@ -11,6 +12,7 @@ class TGBot(object):
         self.tg = TelegramBot(token)
         self._last_id = None
         self.cmds = {}
+        self.pcmds = {}
         self._no_cmd = no_command
         self._msgs = {}
         self._plugins = plugins
@@ -29,15 +31,19 @@ class TGBot(object):
                 if not isinstance(cmd, TGCommandBase):
                     raise NotImplementedError('%s does not subclass tgbot.TGCommandBase' % type(cmd).__name__)
 
-                if cmd in self.cmds:
+                if cmd in self.cmds or cmd in self.pcmds:
                     raise Exception(
                         'Duplicate command %s: both in %s and %s' % (
                             cmd.command,
                             type(p).__name__,
-                            self.cmds[cmd.command].description,
+                            self.cmds.get(cmd.command) or self.pcmds.get(cmd.command),
                         )
                     )
-                self.cmds[cmd.command] = cmd
+
+                if cmd.prefix:
+                    self.pcmds[cmd.command] = cmd
+                else:
+                    self.cmds[cmd.command] = cmd
 
         if db_url is None:
             self.db = connect('sqlite:///:memory:')
@@ -95,9 +101,20 @@ class TGBot(object):
                 pass  # ignore, already exists
 
         if message.text is not None and message.text.startswith('/'):
-            text = message.text.replace("@" + self.tg.username, '', 1)
-            for p in self._plugins:
-                self.process(p, message, text)
+            spl = message.text.find(' ')
+
+            if spl < 0:
+                cmd = message.text[1:]
+                text = ''
+            else:
+                cmd = message.text[1:spl]
+                text = message.text[spl+1:]
+
+            spl = cmd.find('@')
+            if spl > -1:
+                cmd = cmd[:spl]
+
+            self.process(message, cmd, text)
         else:
             was_expected = False
             for p in self._plugins:
@@ -136,31 +153,25 @@ class TGBot(object):
         run_server(self, **kwargs)
 
     def list_commands(self):
-        out = []
-        for ck in self.cmds:
-            if self.cmds[ck].description:
-                out.append((ck, self.cmds[ck].description))
-        return out
+        return self.cmds.values() + self.pcmds.values()
 
-    def print_commands(self):
+    def print_commands(self, out=sys.stdout):
         '''
-        utility method to print commands and descriptions
-        for @BotFather
+        utility method to print commands
+        and descriptions for @BotFather
         '''
         cmds = self.list_commands()
         for ck in cmds:
-            print '%s - %s' % ck
+            if ck.printable:
+                out.write('%s\n' % ck)
 
-    def process(self, plugin, message, text):
-        for cmd in plugin.list_commands():
-            if text.startswith(cmd.command, 1):
-                if len(text) == (len(cmd.command) + 1):
-                    cmd.method(self, message, '')
-                    break
-                spl = text.find(' ')
-                if spl == (len(cmd.command) + 1):
-                    cmd.method(self, message, text[spl + 1:])
-                    break
-                if cmd.prefix:
-                    cmd.method(self, message, text[len(cmd.command) + 1:])
+    def process(self, message, cmd, text):
+        if cmd in self.cmds:
+            self.cmds[cmd].method(self, message, text)
+        elif cmd in self.pcmds:
+            self.pcmds[cmd].method(self, message, text)
+        else:
+            for pcmd in self.pcmds:
+                if cmd.startswith(pcmd):
+                    self.pcmds[pcmd].method(self, message, cmd[len(pcmd):] + text)
                     break

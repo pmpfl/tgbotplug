@@ -14,7 +14,7 @@ class TestPlugin(TGPluginBase):
             TGCommandBase('read', self.read, 'read a note'),
             TGCommandBase('savegroup', self.savegroup, 'save a group note'),
             TGCommandBase('readgroup', self.readgroup, 'read a group note'),
-            TGCommandBase('prefixcmd', self.prefixcmd, 'prefix cmd', prefix=True)
+            TGCommandBase('prefixcmd', self.prefixcmd, 'prefix cmd', prefix=True, printable=False),
         ]
 
     def echo_selective(self, bot, message, text):
@@ -123,6 +123,19 @@ class TestPluginTest(plugintest.PluginTestCase):
         )
 
         self.received_id += 1
+
+    def test_print_commands(self):
+        from cStringIO import StringIO
+        out = StringIO()
+        self.bot.print_commands(out=out)
+        self.assertEqual(out.getvalue(),'''\
+read - read a note
+echo - right back at ya
+readgroup - read a group note
+savegroup - save a group note
+echo2 - right back at ya
+save - save a note
+''')
 
     def test_reply(self):
         self.receive_message('/echo test')
