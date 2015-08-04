@@ -72,7 +72,7 @@ class DBTrackTest(plugintest.PluginTestCase):
 
         self.received_id += 1
 
-    def test_reply(self):
+    def test_track(self):
         chat1 = {'id': 1, 'title': 'test chat'}
         sender2 = {
             'id': 2,
@@ -100,5 +100,5 @@ class DBTrackTest(plugintest.PluginTestCase):
         self.assertEqual(models.GroupChat.select().count(), 1)
 
         # kicked out of group
-        self.receive_update(chat=chat1, left_chat_participant=dict(self.bot.me.__dict__))
+        self.receive_update(chat=chat1, left_chat_participant=dict(self.bot.tg._bot_user.__dict__))
         self.assertEqual(models.GroupChat.select().count(), 0)

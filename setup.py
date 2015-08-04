@@ -9,7 +9,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='tgbotplug',
-    version='0.1.12',
+    version='0.1.13',
     packages=['tgbot'],
     include_package_data=True,
     license='MIT License',

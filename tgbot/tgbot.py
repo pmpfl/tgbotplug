@@ -1,6 +1,6 @@
 from twx.botapi import TelegramBot, Error, GroupChat
 from . import models
-from .pluginbase import TGPluginBase
+from .pluginbase import TGPluginBase, TGCommandBase
 from playhouse.db_url import connect
 import peewee
 
@@ -14,10 +14,6 @@ class TGBot(object):
         self._no_cmd = no_command
         self._msgs = {}
         self._plugins = plugins
-        self.me = None
-
-        if self._token:
-            self.me = self.tg.get_me().wait()
 
         if no_command is not None:
             if not isinstance(no_command, TGPluginBase):
@@ -29,15 +25,19 @@ class TGBot(object):
                 raise NotImplementedError('%s does not subclass tgbot.TGPluginBase' % type(p).__name__)
 
             for cmd in p.list_commands():
-                if cmd[0] in self.cmds:
+
+                if not isinstance(cmd, TGCommandBase):
+                    raise NotImplementedError('%s does not subclass tgbot.TGCommandBase' % type(cmd).__name__)
+
+                if cmd in self.cmds:
                     raise Exception(
                         'Duplicate command %s: both in %s and %s' % (
-                            cmd[0],
+                            cmd.command,
                             type(p).__name__,
-                            self.cmds[cmd[0]][2],
+                            self.cmds[cmd.command].description,
                         )
                     )
-                self.cmds[cmd[0]] = (cmd[1], cmd[2], type(p).__name__)
+                self.cmds[cmd.command] = cmd
 
         if db_url is None:
             self.db = connect('sqlite:///:memory:')
@@ -48,7 +48,13 @@ class TGBot(object):
             self.db.autorollback = True
             models.database_proxy.initialize(self.db)
 
+    def update_bot_info(self):
+        # re-implement update_bot_info to make it synchronous
+        if self.tg.username is None:
+            self.tg._bot_user = self.tg.get_me().wait()
+
     def process_update(self, update):  # noqa not complex at all!
+        self.update_bot_info()
         message = update.message
 
         try:
@@ -60,7 +66,7 @@ class TGBot(object):
         except peewee.IntegrityError:
             pass  # ignore, already exists
 
-        if message.left_chat_participant is not None and message.left_chat_participant == self.me:
+        if message.left_chat_participant is not None and message.left_chat_participant.username == self.tg.username:
             models.GroupChat.delete().where(models.GroupChat.id == message.chat.id).execute()
         elif isinstance(message.chat, GroupChat):
             try:
@@ -89,11 +95,9 @@ class TGBot(object):
                 pass  # ignore, already exists
 
         if message.text is not None and message.text.startswith('/'):
-            spl = message.text.find(' ')
-            if spl < 0:
-                self.process(message.text[1:], '', message)
-            else:
-                self.process(message.text[1:spl], message.text[spl + 1:], message)
+            text = message.text.replace("@" + self.tg.username, '', 1)
+            for p in self._plugins:
+                self.process(p, message, text)
         else:
             was_expected = False
             for p in self._plugins:
@@ -134,8 +138,8 @@ class TGBot(object):
     def list_commands(self):
         out = []
         for ck in self.cmds:
-            if self.cmds[ck][1]:
-                out.append((ck, self.cmds[ck][1]))
+            if self.cmds[ck].description:
+                out.append((ck, self.cmds[ck].description))
         return out
 
     def print_commands(self):
@@ -147,14 +151,16 @@ class TGBot(object):
         for ck in cmds:
             print '%s - %s' % ck
 
-    def process(self, cmd, text, message):
-        spl = cmd.find('@')
-        if spl > 0:
-            cmd = cmd[:spl]
-        if cmd in self.cmds:
-            try:
-                self.cmds[cmd][0](self, message, text)
-            except:
-                import traceback
-                traceback.print_exc()
-                self.tg.send_message(message.chat.id, 'some error occurred... (logged and reported)', reply_to_message_id=message.message_id)
+    def process(self, plugin, message, text):
+        for cmd in plugin.list_commands():
+            if text.startswith(cmd.command, 1):
+                if len(text) == (len(cmd.command) + 1):
+                    cmd.method(self, message, '')
+                    break
+                spl = text.find(' ')
+                if spl == (len(cmd.command) + 1):
+                    cmd.method(self, message, text[spl + 1:])
+                    break
+                if cmd.prefix:
+                    cmd.method(self, message, text[len(cmd.command) + 1:])
+                    break

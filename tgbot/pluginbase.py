@@ -3,14 +3,24 @@ from . import models
 import json
 
 
+class TGCommandBase(object):
+    def __init__(self, command, method, description='', prefix=False):
+        self.command = command
+        self.method = method
+        self.description = description
+        self.prefix = prefix
+
+    def printcommand(self):
+        print '%s - %s' % self.method, self.description
+
+
 class TGPluginBase(object):
     def __init__(self):
         self.key_name = '%s.%s' % (self.__module__, self.__class__.__name__)
 
     def list_commands(self):
         '''
-        this method should return a list of tuples containing:
-        ('command', method_to_execute, 'command description')
+        this method should return a list of TGCommandBase
 
         Set command description to None (or '') to prevent that
         command from being listed by TGBot.list_commands
